@@ -1,39 +1,50 @@
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, HttpUrl, field_validator, ConfigDict
 from datetime import date
-from validation import validate_name, validate_gender, validate_birth_date
+from validation import (
+    validate_name,
+    validate_gender,
+    validate_birth_date
+)
 
 
-class ProfileCreateSchema(BaseModel):
-    first_name: str = Field(..., example="John")
-    last_name: str = Field(..., example="Doe")
-    gender: str = Field(..., example="man")
-    date_of_birth: date = Field(..., example="1990-01-01")
-    info: str = Field(..., example="This is a test profile.")
+class ProfileCreateRequestSchema(BaseModel):
+    first_name: str
+    last_name: str
+    gender: str
+    date_of_birth: date
+    info: str
 
-    @validator("first_name")
-    def validate_first_name(cls, value):
+    @field_validator("first_name")
+    @classmethod
+    def validate_first_name(cls, value: str) -> str:
         return validate_name(value)
 
-    @validator("last_name")
-    def validate_last_name(cls, value):
+    @field_validator("last_name")
+    @classmethod
+    def validate_last_name(cls, value: str) -> str:
         return validate_name(value)
 
-    @validator("gender")
-    def validate_gender_field(cls, value):
+    @field_validator("gender")
+    @classmethod
+    def validate_gender_field(cls, value: str) -> str:
         return validate_gender(value)
 
-    @validator("date_of_birth")
-    def validate_birth(cls, value):
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_birth(cls, value: date) -> date:
         return validate_birth_date(value)
 
-    @validator("info")
-    def validate_info(cls, value):
+    @field_validator("info")
+    @classmethod
+    def validate_info(cls, value: str) -> str:
         if not value.strip():
-            raise ValueError("Info cannot be empty or whitespace.")
+            raise ValueError("Info must not be empty.")
         return value
 
 
-class ProfileResponseSchema(BaseModel):
+class ProfileCreateResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     first_name: str
@@ -41,4 +52,4 @@ class ProfileResponseSchema(BaseModel):
     gender: str
     date_of_birth: date
     info: str
-    avatar: HttpUrl = Field(..., example="http://minio-theater/avatars/1_avatar.jpg")
+    avatar: HttpUrl
