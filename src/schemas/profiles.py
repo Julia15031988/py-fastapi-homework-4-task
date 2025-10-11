@@ -3,7 +3,7 @@ from datetime import date
 from validation import (
     validate_name,
     validate_gender,
-    validate_birth_date
+    validate_birth_date,
 )
 
 
