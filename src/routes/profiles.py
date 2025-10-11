@@ -10,13 +10,14 @@ from validation import validate_image
 
 router = APIRouter()
 
+
 @router.post("/users/{user_id}/profile/", response_model=ProfileResponseSchema, status_code=status.HTTP_201_CREATED)
 async def create_user_profile(
     user_id: int,
     request: Request,
-    avatar: UploadFile = File(...),
-    data: ProfileCreateSchema = Depends(),
-    db: AsyncSession = Depends(get_db),
+    avatar: UploadFile=File(...),
+    data: ProfileCreateSchema=Depends(),
+    db: AsyncSession=Depends(get_db),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     s3_client = Depends(get_s3_storage_client),
 ):
@@ -33,7 +34,7 @@ async def create_user_profile(
     if current_user_id != user_id and current_user_role != "admin":
         raise HTTPException(status_code=403, detail="You don't have permission to edit this profile.")
 
-    user = await db.scalar(select(UserModel).where(UserModel.id == user_id, UserModel.is_active == True))
+    user = await db.scalar(select(UserModel).where(UserModel.id == user_id, UserModel.is_active))
     if not user:
         raise HTTPException(status_code=401, detail="User not found or not active.")
 

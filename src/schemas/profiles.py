@@ -32,6 +32,7 @@ class ProfileCreateSchema(BaseModel):
             raise ValueError("Info cannot be empty or whitespace.")
         return value
 
+
 class ProfileResponseSchema(BaseModel):
     id: int
     user_id: int
