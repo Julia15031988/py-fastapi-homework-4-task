@@ -55,7 +55,6 @@ async def create_user_profile(
     except BaseSecurityError as error:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
 
-
     current_user = await db.scalar(
         select(UserModel)
         .where(UserModel.id == payload.get("user_id"))
@@ -119,4 +118,3 @@ async def create_user_profile(
         info=profile.info,
         avatar=avatar_url,
     )
-
