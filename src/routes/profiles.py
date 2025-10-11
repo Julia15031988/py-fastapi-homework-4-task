@@ -107,7 +107,6 @@ async def create_user_profile(
     await db.commit()
     await db.refresh(profile)
 
-
     return ProfileCreateResponseSchema(
         id=profile.id,
         user_id=profile.user_id,
