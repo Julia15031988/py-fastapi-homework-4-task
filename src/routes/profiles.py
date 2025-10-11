@@ -56,7 +56,7 @@ async def create_user_profile(
 
     current_user = await db.scalar(
         select(UserModel)
-        .where(UserModel.id == payload.get("user_id"))
+        .where(UserModel.id == payload.get("sub"))
         .options(joinedload(UserModel.group))
     )
     if not current_user or not current_user.is_active:
