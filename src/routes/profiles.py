@@ -23,6 +23,7 @@ from validation import (
     validate_name,
     validate_image,
     validate_birth_date,
+    validate_gender
 )
 
 
@@ -67,8 +68,12 @@ async def create_user_profile(
     if existing_profile:
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
-    validate_name(first_name)
-    validate_name(last_name)
+    first_name = validate_name(first_name).lower()
+    last_name = validate_name(last_name).lower()
+    gender = validate_gender(gender).lower()
+
+    if not info or not info.strip():
+        raise HTTPException(status_code=400, detail="Info must not be empty.")
 
     try:
         parsed_date = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
@@ -76,9 +81,17 @@ async def create_user_profile(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    validate_image(avatar)
+    try:
+        validate_birth_date(parsed_date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     await avatar.seek(0)
+
+    try:
+        validate_image(avatar)
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
 
     _, extension = os.path.splitext(avatar.filename)
     avatar_path = f"avatars/{user_id}_avatar{extension or '.jpg'}"
