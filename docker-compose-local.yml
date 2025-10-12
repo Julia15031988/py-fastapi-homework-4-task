@@ -3,7 +3,7 @@ services:
     image: 'postgres:latest'
     container_name: postgres_theater
     env_file:
-      - .env
+      - ..env
     ports:
       - "5432:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
     volumes:
       - ./src:/usr/src/fastapi
     env_file:
-      - .env
+      - ..env
     environment:
       - PYTHONPATH=/usr/src/fastapi
     networks:
@@ -45,7 +45,7 @@ services:
       - "8025:8025"
       - "1025:1025"
     env_file:
-      - .env
+      - ..env
     environment:
       MH_AUTH_FILE: /mailhog.auth
     networks:
@@ -59,7 +59,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     env_file:
-      - .env
+      - ..env
     volumes:
       - minio_data:/data
     healthcheck:
@@ -80,7 +80,7 @@ services:
       minio:
         condition: service_healthy
     env_file:
-      - .env
+      - ..env
     networks:
       - theater_network
 
