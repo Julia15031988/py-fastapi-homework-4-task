@@ -22,8 +22,8 @@ from storages import S3StorageInterface
 from validation import (
     validate_name,
     validate_image,
-    validate_gender,
     validate_birth_date,
+    validate_info,
 )
 
 
@@ -56,7 +56,7 @@ async def create_user_profile(
 
     current_user = await db.scalar(
         select(UserModel)
-        .where(UserModel.id == payload.get("sub"))
+        .where(UserModel.id == payload.get("user_id"))
         .options(joinedload(UserModel.group))
     )
     if not current_user or not current_user.is_active:
@@ -71,6 +71,7 @@ async def create_user_profile(
     validate_name(first_name)
     validate_name(last_name)
     validate_gender(gender)
+    validate_info(info)
 
     try:
         parsed_date = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
