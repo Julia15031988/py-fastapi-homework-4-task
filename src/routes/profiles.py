@@ -69,7 +69,6 @@ async def create_user_profile(
 
     validate_name(first_name)
     validate_name(last_name)
-    validate_gender(gender)
 
     try:
         parsed_date = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
