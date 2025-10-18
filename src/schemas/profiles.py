@@ -35,22 +35,32 @@ class ProfileCreateRequestSchema(BaseModel):
     @field_validator("first_name")
     @classmethod
     def validate_first_name(cls, value: str) -> str:
-        return validate_name(value).lower()
+        if not value or not value.isalpha():
+            raise ValueError("Name must contain only letters.")
+        validate_name(value)
+        return value.lower()
 
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, value: str) -> str:
-        return validate_name(value).lower()
+        if not value or not value.isalpha():
+            raise ValueError("Name must contain only letters.")
+        validate_name(value)
+        return value.lower()
 
     @field_validator("gender")
     @classmethod
     def validate_gender_field(cls, value: str) -> str:
-        return validate_gender(value).lower()
+        if not value or not value.isalpha():
+            raise ValueError("Gender must contain only letters.")
+        validate_gender(value)
+        return value.lower()
 
     @field_validator("date_of_birth")
     @classmethod
     def validate_birth(cls, value: date) -> date:
-        return validate_birth_date(value)
+        validate_birth_date(value)
+        return value
 
     @field_validator("info")
     @classmethod
