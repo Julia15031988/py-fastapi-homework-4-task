@@ -25,6 +25,7 @@ from validation import (
     validate_birth_date,
     validate_gender
 )
+from exceptions.security import TokenExpiredError, InvalidTokenError
 
 
 router = APIRouter()
@@ -37,11 +38,7 @@ router = APIRouter()
 )
 async def create_user_profile(
     user_id: int,
-    first_name: str = Form(...),
-    last_name: str = Form(...),
-    gender: str = Form(...),
-    date_of_birth: str = Form(...),
-    info: str = Form(...),
+    profile_data: ProfileCreateRequestSchema = Depends(ProfileCreateRequestSchema.from_form),
     avatar: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     token: str = Depends(get_token),
@@ -51,13 +48,15 @@ async def create_user_profile(
     # 1. Авторизація
     try:
         payload = jwt_manager.decode_access_token(token)
-        user_id_from_token = int(payload.get("sub") or payload.get("user_id") or 0)
-    except (BaseSecurityError, ValueError):
-        raise HTTPException(status_code=401, detail="Invalid or missing token data")
+        token_user_id = payload.get("user_id")
+        if not token_user_id:
+            raise InvalidTokenError("Invalid token payload.")
+    except (TokenExpiredError, InvalidTokenError) as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
     current_user = await db.scalar(
         select(UserModel)
-        .where(UserModel.id == user_id_from_token)
+        .where(UserModel.id == token_user_id)
         .options(joinedload(UserModel.group))
     )
     if not current_user or not current_user.is_active:
@@ -75,9 +74,11 @@ async def create_user_profile(
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
     # 4. Валідація даних
-    first_name = validate_name(first_name).lower()
-    last_name = validate_name(last_name).lower()
-    gender = validate_gender(gender).lower()
+    first_name = profile_data.first_name
+    last_name = profile_data.last_name
+    gender = profile_data.gender
+    date_of_birth = profile_data.date_of_birth
+    info = profile_data.info
 
     if not info.strip():
         raise HTTPException(status_code=400, detail="Info must not be empty.")
