@@ -50,7 +50,7 @@ async def create_user_profile(
 ) -> ProfileCreateResponseSchema:
 
     payload = jwt_manager.decode_access_token(token)
-    user_id_from_token = (payload.get("sub"))
+    user_id_from_token = int(payload.get("sub"))
     current_user = await db.scalar(
         select(UserModel)
         .where(UserModel.id == user_id_from_token)
