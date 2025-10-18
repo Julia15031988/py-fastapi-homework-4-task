@@ -49,7 +49,6 @@ async def create_user_profile(
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileCreateResponseSchema:
 
-
     payload = jwt_manager.decode_access_token(token)
     user_id_from_token = int(payload.get("sub"))
 
