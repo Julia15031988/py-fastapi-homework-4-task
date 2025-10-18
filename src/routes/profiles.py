@@ -51,16 +51,9 @@ async def create_user_profile(
     # 1. Авторизація
     try:
         payload = jwt_manager.decode_access_token(token)
-    except BaseSecurityError as error:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
-
-    user_id_raw = payload.get("sub")
-    if user_id_raw is None:
-        raise HTTPException(status_code=401, detail="Token payload missing 'sub' claim")
-    try:
-        user_id_from_token = int(user_id_raw)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid 'sub' claim format in token")
+        user_id_from_token = int(payload.get("sub") or payload.get("user_id") or 0)
+    except (BaseSecurityError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid or missing token data")
 
     current_user = await db.scalar(
         select(UserModel)
