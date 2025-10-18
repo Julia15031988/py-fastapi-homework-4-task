@@ -51,6 +51,10 @@ async def create_user_profile(
 
     payload = jwt_manager.decode_access_token(token)
     user_id_from_token = int(payload.get("sub"))
+    if user_id_from_token is None:
+        raise HTTPException(status_code=401, detail="Token payload missing 'sub' claim")
+
+    user_id_from_token = int(user_id_from_token)
 
     current_user = await db.scalar(
         select(UserModel)
