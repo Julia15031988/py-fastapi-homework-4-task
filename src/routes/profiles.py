@@ -49,16 +49,16 @@ async def create_user_profile(
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileCreateResponseSchema:
 
-    try:
-        payload = jwt_manager.decode_access_token(token)
-    except BaseSecurityError as error:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
+
+    payload = jwt_manager.decode_access_token(token)
+    user_id_from_token = int(payload.get("sub"))
 
     current_user = await db.scalar(
         select(UserModel)
-        .where(UserModel.id == payload.get("sub"))
+        .where(UserModel.id == user_id_from_token)
         .options(joinedload(UserModel.group))
     )
+
     if not current_user or not current_user.is_active:
         raise HTTPException(status_code=401, detail="User not found or not active.")
     if not current_user.has_group(UserGroupEnum.ADMIN) and current_user.id != user_id:
