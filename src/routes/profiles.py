@@ -83,7 +83,6 @@ async def create_user_profile(
     if user_for_profile.profile:
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
-
     first_name = validate_name(first_name).lower()
     last_name = validate_name(last_name).lower()
     gender = validate_gender(gender).lower()
