@@ -25,7 +25,6 @@ from validation import (
     validate_birth_date,
     validate_gender
 )
-from typing import Annotated
 
 
 router = APIRouter()
@@ -45,8 +44,7 @@ async def create_user_profile(
     info: str = Form(...),
     avatar: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    #token: str = Depends(get_token),
-    token: Annotated[str, Depends(get_token)],
+    token: str = Depends(get_token),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileCreateResponseSchema:
