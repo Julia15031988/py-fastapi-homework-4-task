@@ -25,6 +25,7 @@ from validation import (
     validate_birth_date,
     validate_gender
 )
+from typing import Annotated
 
 
 router = APIRouter()
@@ -44,13 +45,25 @@ async def create_user_profile(
     info: str = Form(...),
     avatar: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    token: str = Depends(get_token),
+    #token: str = Depends(get_token),
+    token: Annotated[str, Depends(get_token)],
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileCreateResponseSchema:
+    try:
+        payload = jwt_manager.decode_access_token(token)
+    except BaseSecurityError as error:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
 
-    payload = jwt_manager.decode_access_token(token)
-    user_id_from_token = int(payload.get("sub"))
+    user_id_from_token = payload.get("sub")
+    if user_id_from_token is None:
+        raise HTTPException(status_code=401, detail="Token payload missing 'sub' claim")
+
+    try:
+        user_id_from_token = int(user_id_from_token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid 'sub' claim format in token")
+
     current_user = await db.scalar(
         select(UserModel)
         .where(UserModel.id == user_id_from_token)
@@ -59,12 +72,19 @@ async def create_user_profile(
 
     if not current_user or not current_user.is_active:
         raise HTTPException(status_code=401, detail="User not found or not active.")
+
     if not current_user.has_group(UserGroupEnum.ADMIN) and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to edit this profile.")
 
-    existing_profile = await db.scalar(select(UserProfileModel).where(UserProfileModel.user_id == user_id))
-    if existing_profile:
+    user_for_profile = await db.scalar(
+        select(UserModel)
+        .where(UserModel.id == user_id)
+        .options(joinedload(UserModel.profile))
+    )
+
+    if user_for_profile.profile:
         raise HTTPException(status_code=400, detail="User already has a profile.")
+
 
     first_name = validate_name(first_name).lower()
     last_name = validate_name(last_name).lower()
