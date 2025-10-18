@@ -48,17 +48,17 @@ async def create_user_profile(
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ) -> ProfileCreateResponseSchema:
+    # 1. Авторизація
     try:
         payload = jwt_manager.decode_access_token(token)
     except BaseSecurityError as error:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
 
-    user_id_from_token = payload.get("sub")
-    if user_id_from_token is None:
+    user_id_raw = payload.get("sub")
+    if user_id_raw is None:
         raise HTTPException(status_code=401, detail="Token payload missing 'sub' claim")
-
     try:
-        user_id_from_token = int(user_id_from_token)
+        user_id_from_token = int(user_id_raw)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid 'sub' claim format in token")
 
@@ -67,42 +67,38 @@ async def create_user_profile(
         .where(UserModel.id == user_id_from_token)
         .options(joinedload(UserModel.group))
     )
-
     if not current_user or not current_user.is_active:
         raise HTTPException(status_code=401, detail="User not found or not active.")
 
+    # 2. Авторизація
     if not current_user.has_group(UserGroupEnum.ADMIN) and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to edit this profile.")
 
-    user_for_profile = await db.scalar(
-        select(UserModel)
-        .where(UserModel.id == user_id)
-        .options(joinedload(UserModel.profile))
+    # 3. Перевірка наявності профілю
+    existing_profile = await db.scalar(
+        select(UserProfileModel).where(UserProfileModel.user_id == user_id)
     )
-
-    if user_for_profile.profile:
+    if existing_profile:
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
+    # 4. Валідація даних
     first_name = validate_name(first_name).lower()
     last_name = validate_name(last_name).lower()
     gender = validate_gender(gender).lower()
 
-    if not info or not info.strip():
+    if not info.strip():
         raise HTTPException(status_code=400, detail="Info must not be empty.")
 
     try:
         parsed_date = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
         validate_birth_date(parsed_date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    try:
-        validate_birth_date(parsed_date)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
+    # 5. Обробка аватара
     await avatar.seek(0)
-
     try:
         validate_image(avatar)
     except ValueError as ve:
@@ -117,10 +113,11 @@ async def create_user_profile(
     except BaseS3Error:
         raise HTTPException(status_code=500, detail="Failed to upload avatar. Please try again later.")
 
+    # 6. Створення профілю
     profile = UserProfileModel(
         user_id=user_id,
-        first_name=first_name.lower(),
-        last_name=last_name.lower(),
+        first_name=first_name,
+        last_name=last_name,
         gender=gender,
         date_of_birth=parsed_date,
         info=info,
