@@ -1,21 +1,7 @@
-import os
-from fastapi import (
-    APIRouter,
-    Depends,
-    status,
-    File,
-    UploadFile,
-    HTTPException,
-)
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
-
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, File, UploadFile
 from typing import Annotated
-
-from fastapi import APIRouter, Form, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from schemas.profiles import ProfileCreateSchema, ProfileResponseSchema
@@ -24,7 +10,6 @@ from config.dependencies import get_s3_storage_client, get_jwt_auth_manager
 from security.interfaces import JWTAuthManagerInterface
 from exceptions import TokenExpiredError, InvalidTokenError, S3FileUploadError
 from storages import S3StorageInterface
-
 
 router = APIRouter()
 
@@ -35,54 +20,37 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> UserModel:
     auth_header = request.headers.get("Authorization")
-    if not auth_header:
+    if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header is missing",
+            detail="Invalid or missing Authorization header.",
         )
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header format. Expected 'Bearer <token>'",
-        )
+
     token = auth_header.split("Bearer ")[1]
 
     try:
         payload = jwt_manager.decode_access_token(token)
     except TokenExpiredError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired.",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired.")
     except InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token."
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.")
+
     user_id = payload.get("user_id")
     if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token.",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.")
 
     user = await db.scalar(
         select(UserModel)
         .where(UserModel.id == user_id)
         .options(joinedload(UserModel.group))
     )
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active",
-        )
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or not active.")
+
     return user
 
-@router.post(
-    "/users/{user_id}/profile/",
-    status_code=status.HTTP_201_CREATED,
-)
 
+@router.post("/users/{user_id}/profile/", status_code=status.HTTP_201_CREATED)
 async def create_profile(
     user_id: int,
     profile_data: Annotated[ProfileCreateSchema, Depends(ProfileCreateSchema.as_form)],
@@ -97,36 +65,21 @@ async def create_profile(
     )
 
     if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active.",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or not active.")
 
     if user_id != current_user.id and not current_user.has_group(UserGroupEnum.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to edit this profile.",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to edit this profile.")
 
     if user.profile:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already has a profile.",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has a profile.")
 
     avatar_byte_data = await profile_data.avatar.read()
     avatar_path = f"avatars/{user.id}_{profile_data.avatar.filename}"
 
     try:
-        await s3_client.upload_file(
-            file_name=avatar_path,
-            file_data=avatar_byte_data,
-        )
+        await s3_client.upload_file(file_name=avatar_path, file_data=avatar_byte_data)
     except S3FileUploadError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload avatar. Please try again later.",
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to upload avatar. Please try again later.")
 
     profile = UserProfileModel(
         **profile_data.model_dump(exclude=["avatar"]),
@@ -136,7 +89,6 @@ async def create_profile(
 
     db.add(profile)
     await db.commit()
-
     avatar_url = await s3_client.get_file_url(profile.avatar)
 
     return ProfileResponseSchema(
