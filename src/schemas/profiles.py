@@ -1,11 +1,10 @@
-from pydantic import BaseModel, HttpUrl, field_validator, ConfigDict
+from fastapi import APIRouter
+from fastapi import Form, File, UploadFile
+from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import date
-from validation import (
-    validate_name,
-    validate_gender,
-    validate_birth_date,
-)
-from fastapi import UploadFile, File, Form
+from validation import validate_name, validate_gender, validate_birth_date
+
+router = APIRouter()
 
 
 class ProfileCreateRequestSchema(BaseModel):
@@ -14,16 +13,17 @@ class ProfileCreateRequestSchema(BaseModel):
     gender: str
     date_of_birth: date
     info: str
+    avatar: UploadFile
 
     @classmethod
-    def from_form(
-            cls,
-            first_name: str = Form(...),
-            last_name: str = Form(...),
-            gender: str = Form(...),
-            date_of_birth: date = Form(...),
-            info: str = Form(...),
-            avatar: UploadFile = File(...),
+    def as_form(
+        cls,
+        first_name: str = Form(...),
+        last_name: str = Form(...),
+        gender: str = Form(...),
+        date_of_birth: date = Form(...),
+        info: str = Form(...),
+        avatar: UploadFile = File(...),
     ) -> "ProfileCreateRequestSchema":
         return cls(
             first_name=first_name,
@@ -31,6 +31,7 @@ class ProfileCreateRequestSchema(BaseModel):
             gender=gender,
             date_of_birth=date_of_birth,
             info=info,
+            avatar=avatar,
         )
 
     @field_validator("first_name")
@@ -75,4 +76,4 @@ class ProfileCreateResponseSchema(BaseModel):
     gender: str
     date_of_birth: date
     info: str
-    avatar: HttpUrl
+    avatar: str  # або HttpUrl, якщо ти точно повертаєш URL
