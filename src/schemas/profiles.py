@@ -59,7 +59,7 @@ class ProfileCreateRequestSchema(BaseModel):
     @field_validator("info")
     @classmethod
     def validate_info(cls, value: str) -> str:
-        if not value.strip():
+        if not value or not value.strip():
             raise ValueError("Info must not be empty.")
         return value
 
