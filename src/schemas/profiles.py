@@ -45,7 +45,6 @@ class RequestProfileSchema(BaseModel):
             raise ValueError("Info must not be empty.")
         return value.strip()
 
-
     @field_validator("avatar")
     @classmethod
     def validate_avatar_field(cls, value: UploadFile) -> UploadFile:
