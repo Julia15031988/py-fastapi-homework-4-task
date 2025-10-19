@@ -4,8 +4,9 @@ from validation import (
     validate_name,
     validate_gender,
     validate_birth_date,
+    validate_image,
 )
-from fastapi import Form
+from fastapi import Form, UploadFile, File, HTTPException
 
 
 class ProfileCreateRequestSchema(BaseModel):
@@ -14,6 +15,7 @@ class ProfileCreateRequestSchema(BaseModel):
     gender: str
     date_of_birth: date
     info: str
+    avatar: UploadFile | None
 
     @classmethod
     def from_form(
@@ -23,13 +25,19 @@ class ProfileCreateRequestSchema(BaseModel):
             gender: str = Form(...),
             date_of_birth: date = Form(...),
             info: str = Form(...),
+            avatar: UploadFile = File(...),
     ) -> "ProfileCreateRequestSchema":
+        stripped_info = info.strip()
+        if not stripped_info:
+            # вручну піднімаємо помилку, щоб не падало в Pydantic
+            raise ValueError("Info must not be empty.")
         return cls(
             first_name=first_name,
             last_name=last_name,
             gender=gender,
             date_of_birth=date_of_birth,
-            info=info.strip(),
+            info=stripped_info,
+            avatar=avatar,
         )
 
     @field_validator("first_name")
@@ -62,6 +70,23 @@ class ProfileCreateRequestSchema(BaseModel):
         if not value or not value.strip():
             raise ValueError("Info must not be empty.")
         return value.strip()
+
+    @field_validator("avatar")
+    @classmethod
+    def validate_avatar(cls, value: UploadFile) -> UploadFile:
+        try:
+            validate_image(value)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["avatar"],
+                    "msg": str(e),
+                    "input": value.filename,
+                }],
+            )
+        return value
 
 
 class ProfileCreateResponseSchema(BaseModel):
