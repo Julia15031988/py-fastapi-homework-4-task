@@ -1,10 +1,8 @@
 import os
-from datetime import datetime, date
 from fastapi import (
     APIRouter,
     Depends,
     status,
-    Form,
     File,
     UploadFile,
     HTTPException,
@@ -14,19 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from config import get_jwt_auth_manager, get_s3_storage_client
 from database import UserModel, UserGroupEnum, UserProfileModel, get_db
-from exceptions import BaseSecurityError, BaseS3Error
+from exceptions import BaseS3Error
 from schemas.profiles import ProfileCreateResponseSchema, ProfileCreateRequestSchema
 from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
 from storages import S3StorageInterface
-from validation import (
-    validate_name,
-    validate_image,
-    validate_birth_date,
-    validate_gender
-)
+from validation import validate_image, validate_birth_date
 from exceptions.security import TokenExpiredError, InvalidTokenError
-
 
 router = APIRouter()
 
@@ -47,6 +39,8 @@ async def create_user_profile(
 ) -> ProfileCreateResponseSchema:
     # 1. Авторизація
     try:
+        if token.startswith("Bearer "):
+            token = token.split("Bearer ")[1]
         payload = jwt_manager.decode_access_token(token)
         token_user_id = payload.get("user_id")
         if not token_user_id:
@@ -62,7 +56,7 @@ async def create_user_profile(
     if not current_user or not current_user.is_active:
         raise HTTPException(status_code=401, detail="User not found or not active.")
 
-    # 2. Авторизація
+    # 2. Перевірка прав
     if not current_user.has_group(UserGroupEnum.ADMIN) and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="You don't have permission to edit this profile.")
 
@@ -73,31 +67,20 @@ async def create_user_profile(
     if existing_profile:
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
-    # 4. Валідація даних
-    first_name = profile_data.first_name
-    last_name = profile_data.last_name
-    gender = profile_data.gender
-    date_of_birth = profile_data.date_of_birth
-    info = profile_data.info
-
-    if not info.strip():
-        raise HTTPException(status_code=400, detail="Info must not be empty.")
-
+    # 4. Перевірка дати
     try:
-        parsed_date = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
-        validate_birth_date(parsed_date)
+        validate_birth_date(profile_data.date_of_birth)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    # 5. Обробка аватара
+    # 5. Перевірка аватара
     await avatar.seek(0)
     try:
         validate_image(avatar)
     except ValueError as ve:
         raise HTTPException(status_code=422, detail=str(ve))
 
+    # 6. Завантаження в S3
     _, extension = os.path.splitext(avatar.filename)
     avatar_path = f"avatars/{user_id}_avatar{extension or '.jpg'}"
 
@@ -107,14 +90,14 @@ async def create_user_profile(
     except BaseS3Error:
         raise HTTPException(status_code=500, detail="Failed to upload avatar. Please try again later.")
 
-    # 6. Створення профілю
+    # 7. Створення профілю
     profile = UserProfileModel(
         user_id=user_id,
-        first_name=first_name,
-        last_name=last_name,
-        gender=gender,
-        date_of_birth=parsed_date,
-        info=info,
+        first_name=profile_data.first_name,
+        last_name=profile_data.last_name,
+        gender=profile_data.gender,
+        date_of_birth=profile_data.date_of_birth,
+        info=profile_data.info,
         avatar=avatar_path,
     )
 

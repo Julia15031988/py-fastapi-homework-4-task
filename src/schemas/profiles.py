@@ -36,19 +36,19 @@ class ProfileCreateRequestSchema(BaseModel):
     @classmethod
     def validate_first_name(cls, value: str) -> str:
         validate_name(value)
-        return value.lower()
+        return value
 
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, value: str) -> str:
         validate_name(value)
-        return value.lower()
+        return value
 
     @field_validator("gender")
     @classmethod
     def validate_gender_field(cls, value: str) -> str:
         validate_gender(value)
-        return value.lower()
+        return value
 
     @field_validator("date_of_birth")
     @classmethod
@@ -59,7 +59,9 @@ class ProfileCreateRequestSchema(BaseModel):
     @field_validator("info")
     @classmethod
     def validate_info(cls, value: str) -> str:
-        return value.strip() if value else ""
+        if not value or not value.strip():
+            raise ValueError("Info must not be empty.")
+        return value.strip()
 
 
 class ProfileCreateResponseSchema(BaseModel):
