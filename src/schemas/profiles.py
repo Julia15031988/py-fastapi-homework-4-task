@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from fastapi import Form, File, UploadFile
+from fastapi import Form, File, UploadFile, HTTPException, status
 from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import date
 from validation import validate_name, validate_gender, validate_birth_date
@@ -25,12 +25,24 @@ class ProfileCreateRequestSchema(BaseModel):
         info: str = Form(...),
         avatar: UploadFile = File(...),
     ) -> "ProfileCreateRequestSchema":
+        stripped_info = info.strip()
+        if not stripped_info:
+            # Повертаємо помилку ще до Pydantic, щоб уникнути ValidationError
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "loc": ["info"],
+                    "msg": "Info must not be empty.",
+                    "type": "value_error",
+                    "input": info,
+                }],
+            )
         return cls(
             first_name=first_name,
             last_name=last_name,
             gender=gender,
             date_of_birth=date_of_birth,
-            info=info,
+            info=stripped_info,
             avatar=avatar,
         )
 
