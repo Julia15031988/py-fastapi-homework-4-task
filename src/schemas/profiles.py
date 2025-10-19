@@ -48,7 +48,7 @@ class ProfileCreateRequestSchema(BaseModel):
     @classmethod
     def validate_gender_field(cls, value: str) -> str:
         validate_gender(value)
-        return value
+        return value.lower()
 
     @field_validator("date_of_birth")
     @classmethod
