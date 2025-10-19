@@ -39,6 +39,8 @@ async def create_user_profile(
 ) -> ProfileCreateResponseSchema:
     # 🔐 Авторизація
     try:
+        if not token.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Invalid token format.")
         token = token.removeprefix("Bearer ")
         payload = jwt_manager.decode_access_token(token)
         token_user_id = payload.get("user_id")

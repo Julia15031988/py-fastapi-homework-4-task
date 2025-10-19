@@ -25,16 +25,12 @@ class ProfileCreateRequestSchema(BaseModel):
             info: str = Form(...),
             avatar: UploadFile = File(...),
     ) -> "ProfileCreateRequestSchema":
-        stripped_info = info.strip()
-        if not stripped_info:
-            # вручну піднімаємо помилку, щоб не падало в Pydantic
-            raise ValueError("Info must not be empty.")
         return cls(
             first_name=first_name,
             last_name=last_name,
             gender=gender,
             date_of_birth=date_of_birth,
-            info=stripped_info,
+            info=info,
         )
 
     @field_validator("first_name")
