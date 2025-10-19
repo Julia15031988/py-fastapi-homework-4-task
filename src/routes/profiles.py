@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from schemas.profiles import ProfileCreateSchema, ProfileResponseSchema
+from schemas.profiles import ProfileCreateResponseSchema, ProfileCreateRequestSchema
 from database import get_db, UserProfileModel, UserModel, UserGroupEnum
 from config.dependencies import get_s3_storage_client, get_jwt_auth_manager
 from security.interfaces import JWTAuthManagerInterface
@@ -53,7 +53,7 @@ async def get_current_user(
 @router.post("/users/{user_id}/profile/", status_code=status.HTTP_201_CREATED)
 async def create_profile(
     user_id: int,
-    profile_data: Annotated[ProfileCreateSchema, Depends(ProfileCreateSchema.as_form)],
+    profile_data: Annotated[ProfileCreateRequestSchema, Depends(ProfileCreateRequestSchema.as_form)],
     current_user: Annotated[UserModel, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     s3_client: Annotated[S3StorageInterface, Depends(get_s3_storage_client)],
@@ -94,7 +94,7 @@ async def create_profile(
     await db.commit()
     avatar_url = await s3_client.get_file_url(profile.avatar)
 
-    return ProfileResponseSchema(
+    return ProfileCreateResponseSchema(
         id=profile.id,
         user_id=profile.user_id,
         first_name=profile.first_name,
