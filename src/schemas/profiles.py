@@ -6,7 +6,7 @@ from validation import (
     validate_birth_date,
     validate_image,
 )
-from fastapi import Form, UploadFile, File, HTTPException
+from fastapi import Form, UploadFile, File, HTTPException, APIRouter, Form, Depends, HTTPException, Request, status
 
 
 class ProfileCreateRequestSchema(BaseModel):
