@@ -20,11 +20,12 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> UserModel:
     auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing Authorization header.",
-        )
+    if not auth_header:
+        raise HTTPException(status_code=401,
+                            detail="Authorization header is missing")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401,
+                            detail="Invalid Authorization header format. Expected 'Bearer <token>'")
 
     token = auth_header.split("Bearer ")[1]
 
