@@ -29,20 +29,20 @@ class ProfileCreateRequestSchema(BaseModel):
             last_name=last_name,
             gender=gender,
             date_of_birth=date_of_birth,
-            info=info,
+            info=info.strip(),
         )
 
     @field_validator("first_name")
     @classmethod
     def validate_first_name(cls, value: str) -> str:
         validate_name(value)
-        return value
+        return value.strip().lower()
 
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, value: str) -> str:
         validate_name(value)
-        return value
+        return value.strip().lower()
 
     @field_validator("gender")
     @classmethod
