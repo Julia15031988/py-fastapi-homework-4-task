@@ -1,96 +1,98 @@
 import os
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    status,
+    File,
+    UploadFile,
+    HTTPException,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
-from starlette import status
 
 from config import get_jwt_auth_manager, get_s3_storage_client
-from database import UserGroupEnum, UserModel, UserProfileModel, get_db
+from database import UserModel, UserGroupEnum, UserProfileModel, get_db
 from exceptions import BaseS3Error, BaseSecurityError
-from schemas.profiles import RequestProfileSchema, ProfileResponseSchema
+from schemas.profiles import ProfileCreateResponseSchema, ProfileCreateRequestSchema
 from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
 from storages import S3StorageInterface
+from validation import validate_image
 
 router = APIRouter()
 
 
 @router.post(
     "/users/{user_id}/profile/",
-    response_model=ProfileResponseSchema,
+    response_model=ProfileCreateResponseSchema,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_user_profile(
     user_id: int,
-    token: Annotated[str, Depends(get_token)],
-    jwt_manager: Annotated[JWTAuthManagerInterface, Depends(get_jwt_auth_manager)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-    s3_client: Annotated[S3StorageInterface, Depends(get_s3_storage_client)],
-    profile_data: RequestProfileSchema = Depends(RequestProfileSchema.as_form),
-) -> ProfileResponseSchema:
+    profile_data: ProfileCreateRequestSchema = Depends(ProfileCreateRequestSchema.from_form),
+    avatar: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(get_token),
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+    s3_client: S3StorageInterface = Depends(get_s3_storage_client),
+) -> ProfileCreateResponseSchema:
     # 🔐 Авторизація
     try:
-        token_data = jwt_manager.decode_access_token(token)
+        token = token.removeprefix("Bearer ")
+        payload = jwt_manager.decode_access_token(token)
+        token_user_id = payload.get("user_id")
+        if not token_user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload.")
     except BaseSecurityError as error:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
+        raise HTTPException(status_code=401, detail=str(error))
 
     current_user = await db.scalar(
         select(UserModel)
-        .where(UserModel.id == token_data.get("user_id"))
+        .where(UserModel.id == token_user_id)
         .options(joinedload(UserModel.group))
     )
 
     if not current_user or not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active.",
-        )
+        raise HTTPException(status_code=401, detail="User not found or not active.")
 
+    # 🔒 Перевірка прав доступу
     if not current_user.has_group(UserGroupEnum.ADMIN) and current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to edit this profile.",
-        )
+        raise HTTPException(status_code=403, detail="You don't have permission to edit this profile.")
 
-    # 🔍 Перевірка на дублювання профілю
-    user_for_profile = await db.scalar(
-        select(UserModel)
-        .where(UserModel.id == user_id)
-        .options(joinedload(UserModel.profile))
+    # 🔍 Перевірка дублювання профілю
+    existing_profile = await db.scalar(
+        select(UserProfileModel).where(UserProfileModel.user_id == user_id)
     )
+    if existing_profile:
+        raise HTTPException(status_code=400, detail="User already has a profile.")
 
-    if user_for_profile.profile:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already has a profile.",
-        )
+    # 📤 Перевірка аватара
+    await avatar.seek(0)
+    try:
+        validate_image(avatar)
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
 
-    # 📤 Завантаження аватару
-    _, extension = os.path.splitext(profile_data.avatar.filename)
-    avatar_path = f"avatars/{user_id}_avatar{extension}"
-    avatar_bytes = await profile_data.avatar.read()
+    # ☁️ Завантаження аватара в S3
+    _, extension = os.path.splitext(avatar.filename)
+    avatar_path = f"avatars/{user_id}_avatar{extension or '.jpg'}"
 
     try:
-        await s3_client.upload_file(avatar_path, avatar_bytes)
+        await s3_client.upload_file(avatar_path, await avatar.read())
         avatar_url = await s3_client.get_file_url(avatar_path)
     except BaseS3Error:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload avatar. Please try again later.",
-        )
+        raise HTTPException(status_code=500, detail="Failed to upload avatar. Please try again later.")
 
     # 🧾 Створення профілю
     profile = UserProfileModel(
+        user_id=user_id,
         first_name=profile_data.first_name,
         last_name=profile_data.last_name,
         gender=profile_data.gender,
         date_of_birth=profile_data.date_of_birth,
         info=profile_data.info,
         avatar=avatar_path,
-        user=user_for_profile,
     )
 
     db.add(profile)
@@ -98,7 +100,7 @@ async def create_user_profile(
     await db.refresh(profile)
 
     # ✅ Відповідь
-    return ProfileResponseSchema(
+    return ProfileCreateResponseSchema(
         id=profile.id,
         user_id=profile.user_id,
         first_name=profile.first_name,
