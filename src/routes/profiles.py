@@ -3,6 +3,7 @@ from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import date
 from validation import validate_name, validate_gender, validate_birth_date
 
+
 class ProfileCreateRequestSchema(BaseModel):
     first_name: str
     last_name: str
