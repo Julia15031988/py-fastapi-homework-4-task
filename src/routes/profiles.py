@@ -6,6 +6,7 @@ from validation import validate_name, validate_gender, validate_birth_date
 
 router = APIRouter()
 
+
 class ProfileCreateRequestSchema(BaseModel):
     first_name: str
     last_name: str
