@@ -65,13 +65,16 @@ async def create_profile(
     )
 
     if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or not active.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="User not found or not active.")
 
     if user_id != current_user.id and not current_user.has_group(UserGroupEnum.ADMIN):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to edit this profile.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="You don't have permission to edit this profile.")
 
     if user.profile:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has a profile.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="User already has a profile.")
 
     avatar_byte_data = await profile_data.avatar.read()
     avatar_path = f"avatars/{user.id}_{profile_data.avatar.filename}"
@@ -79,7 +82,8 @@ async def create_profile(
     try:
         await s3_client.upload_file(file_name=avatar_path, file_data=avatar_byte_data)
     except S3FileUploadError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to upload avatar. Please try again later.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Failed to upload avatar. Please try again later.")
 
     profile = UserProfileModel(
         **profile_data.model_dump(exclude=["avatar"]),
