@@ -7,6 +7,7 @@ from validation import validate_name, validate_gender, validate_birth_date
 router = APIRouter()
 
 
+
 class ProfileCreateRequestSchema(BaseModel):
     first_name: str
     last_name: str
@@ -27,7 +28,6 @@ class ProfileCreateRequestSchema(BaseModel):
     ) -> "ProfileCreateRequestSchema":
         stripped_info = info.strip()
         if not stripped_info:
-            # Повертаємо помилку ще до Pydantic, щоб уникнути ValidationError
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[{
@@ -50,6 +50,20 @@ class ProfileCreateRequestSchema(BaseModel):
                     "input": str(date_of_birth),
                 }],
             )
+
+        try:
+            validate_image(avatar)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "loc": ["avatar"],
+                    "msg": str(e),
+                    "type": "value_error",
+                    "input": avatar.filename,
+                }],
+            )
+
         return cls(
             first_name=first_name,
             last_name=last_name,
@@ -77,19 +91,6 @@ class ProfileCreateRequestSchema(BaseModel):
         validate_gender(value)
         return value
 
-    @field_validator("date_of_birth")
-    @classmethod
-    def validate_birth(cls, value: date) -> date:
-        validate_birth_date(value)
-        return value
-
-    @field_validator("info")
-    @classmethod
-    def validate_info(cls, value: str) -> str:
-        if not value or not value.strip():
-            raise ValueError("Info must not be empty.")
-        return value.strip()
-
 
 class ProfileCreateResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -101,4 +102,4 @@ class ProfileCreateResponseSchema(BaseModel):
     gender: str
     date_of_birth: date
     info: str
-    avatar: str  # або HttpUrl, якщо ти точно повертаєш URL
+    avatar: str  # або HttpUrl, якщо повертаєш URL
