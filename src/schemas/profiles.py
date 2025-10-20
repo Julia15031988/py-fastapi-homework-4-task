@@ -32,9 +32,22 @@ class ProfileCreateRequestSchema(BaseModel):
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[{
                     "loc": ["info"],
-                    "msg": "Info must not be empty.",
+                    "msg": "Info field cannot be empty or contain only spaces",
                     "type": "value_error",
                     "input": info,
+                }],
+            )
+
+        today = date.today()
+        age = today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
+        if age < 18:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "loc": ["date_of_birth"],
+                    "msg": "You must be at least 18 years old to register.",
+                    "type": "value_error",
+                    "input": str(date_of_birth),
                 }],
             )
         return cls(
