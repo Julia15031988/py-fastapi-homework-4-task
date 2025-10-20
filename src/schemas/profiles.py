@@ -20,6 +20,24 @@ class ProfileCreateRequestSchema(BaseModel):
     info: str
     avatar: UploadFile
 
+    @field_validator("first_name")
+    @classmethod
+    def validate_first_name(cls, value: str) -> str:
+        validate_name(value)
+        return value.strip().lower()
+
+    @field_validator("last_name")
+    @classmethod
+    def validate_last_name(cls, value: str) -> str:
+        validate_name(value)
+        return value.strip().lower()
+
+    @field_validator("gender")
+    @classmethod
+    def validate_gender_field(cls, value: str) -> str:
+        validate_gender(value)
+        return value
+
     @classmethod
     def as_form(
         cls,
@@ -76,24 +94,6 @@ class ProfileCreateRequestSchema(BaseModel):
             info=stripped_info,
             avatar=avatar,
         )
-
-    @field_validator("first_name")
-    @classmethod
-    def validate_first_name(cls, value: str) -> str:
-        validate_name(value)
-        return value.strip().lower()
-
-    @field_validator("last_name")
-    @classmethod
-    def validate_last_name(cls, value: str) -> str:
-        validate_name(value)
-        return value.strip().lower()
-
-    @field_validator("gender")
-    @classmethod
-    def validate_gender_field(cls, value: str) -> str:
-        validate_gender(value)
-        return value
 
 
 class ProfileCreateResponseSchema(BaseModel):
