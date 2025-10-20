@@ -38,6 +38,22 @@ class ProfileCreateRequestSchema(BaseModel):
         validate_gender(value)
         return value
 
+    @field_validator("info")
+    @classmethod
+    def validate_info_field(cls, value):
+        clean_info = value.strip()
+        if not clean_info:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["info"],
+                    "msg": "Info field cannot be empty or contain only spaces.",
+                    "input": value,
+                }],
+            )
+        return clean_info
+
     @classmethod
     def as_form(
         cls,
@@ -48,17 +64,6 @@ class ProfileCreateRequestSchema(BaseModel):
         info: str = Form(...),
         avatar: UploadFile = File(...),
     ) -> "ProfileCreateRequestSchema":
-        stripped_info = info.strip()
-        if not stripped_info:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=[{
-                    "loc": ["info"],
-                    "msg": "Info field cannot be empty or contain only spaces",
-                    "type": "value_error",
-                    "input": info,
-                }],
-            )
 
         today = date.today()
         age = today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
