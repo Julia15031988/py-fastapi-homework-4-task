@@ -96,7 +96,7 @@ class ProfileCreateRequestSchema(BaseModel):
             last_name=last_name,
             gender=gender,
             date_of_birth=date_of_birth,
-            info=stripped_info,
+            info=info,
             avatar=avatar,
         )
 
