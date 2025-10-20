@@ -38,6 +38,23 @@ class ProfileCreateRequestSchema(BaseModel):
         validate_gender(value)
         return value
 
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_age(cls, value):
+        try:
+            validate_birth_date(value)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["date_of_birth"],
+                    "msg": str(e),
+                    "input": str(value),
+                }],
+            )
+        return value
+
     @field_validator("info")
     @classmethod
     def validate_info_field(cls, value):
@@ -54,6 +71,23 @@ class ProfileCreateRequestSchema(BaseModel):
             )
         return clean_info
 
+    @field_validator("avatar")
+    @classmethod
+    def validate_avatar(cls, value: UploadFile) -> UploadFile:
+        try:
+            validate_image(value)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["avatar"],
+                    "msg": str(e),
+                    "input": value.filename,
+                }],
+            )
+        return value
+
     @classmethod
     def as_form(
         cls,
@@ -64,32 +98,6 @@ class ProfileCreateRequestSchema(BaseModel):
         info: str = Form(...),
         avatar: UploadFile = File(...),
     ) -> "ProfileCreateRequestSchema":
-
-        today = date.today()
-        age = today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
-        if age < 18:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=[{
-                    "loc": ["date_of_birth"],
-                    "msg": "You must be at least 18 years old to register.",
-                    "type": "value_error",
-                    "input": str(date_of_birth),
-                }],
-            )
-
-        try:
-            validate_image(avatar)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=[{
-                    "loc": ["avatar"],
-                    "msg": str(e),
-                    "type": "value_error",
-                    "input": avatar.filename,
-                }],
-            )
 
         return cls(
             first_name=first_name,
