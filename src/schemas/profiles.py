@@ -23,19 +23,52 @@ class ProfileCreateRequestSchema(BaseModel):
     @field_validator("first_name")
     @classmethod
     def validate_first_name(cls, value: str) -> str:
-        validate_name(value)
-        return value.strip().lower()
+        try:
+            validate_name(value)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["first_name"],
+                    "msg": str(e),
+                    "input": value,
+                }],
+            )
+        return value.lower().strip()
 
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, value: str) -> str:
-        validate_name(value)
-        return value.strip().lower()
+        try:
+            validate_name(value)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["last_name"],
+                    "msg": str(e),
+                    "input": value,
+                }],
+            )
+        return value.lower().strip()
 
     @field_validator("gender")
     @classmethod
     def validate_gender_field(cls, value: str) -> str:
-        validate_gender(value)
+        try:
+            validate_gender(value)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{
+                    "type": "value_error",
+                    "loc": ["gender"],
+                    "msg": str(e),
+                    "input": value,
+                }],
+            )
         return value
 
     @field_validator("date_of_birth")
